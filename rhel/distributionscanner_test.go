@@ -1,6 +1,10 @@
 package rhel
 
 import (
+	"context"
+	"github.com/quay/claircore"
+	"github.com/quay/claircore/test"
+	"github.com/quay/zlog"
 	"io/fs"
 	"os"
 	"path"
@@ -39,5 +43,41 @@ func TestDistributionScanner(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestBootcDistributionDetection(t *testing.T) {
+	ctx := zlog.Test(context.Background(), t)
+	f, err := os.Open(`testdata/layer-distro-links.tar`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	scanner := new(DistributionScanner)
+	var l claircore.Layer
+	desc := claircore.LayerDescription{
+		Digest:    `sha256:` + strings.Repeat(`beef`, 16),
+		URI:       `file:///dev/null`,
+		MediaType: test.MediaType,
+		Headers:   make(map[string][]string),
+	}
+	if err := l.Init(ctx, &desc, f); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := l.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	distribution, err := scanner.Scan(ctx, &l)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if distribution == nil {
+		t.Fatal("nil distribution")
 	}
 }

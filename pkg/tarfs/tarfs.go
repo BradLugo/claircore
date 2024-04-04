@@ -194,10 +194,11 @@ Again:
 		return nil
 	}
 
-	// Hardlink handling: if the target doesn't exist yet, make a note in passed-in map.
 	if ino.h.Typeflag == tar.TypeLink {
 		tgt := ino.h.Linkname
-		if _, ok := f.lookup[tgt]; !ok {
+		if _, ok := f.lookup[tgt]; ok {
+
+		} else {
 			hardlink[tgt] = append(hardlink[tgt], name)
 		}
 	}
@@ -457,10 +458,28 @@ func (f *FS) ReadFile(name string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if i.h.FileInfo().Mode().Type()&fs.ModeSymlink != 0 {
+
+	typ := i.h.FileInfo().Mode().Type()
+	var r *tar.Reader
+	switch {
+	case typ.IsRegular() && i.h.Typeflag != tar.TypeLink:
+		r = tar.NewReader(io.NewSectionReader(f.r, i.off, i.sz))
+	case typ.IsRegular() && i.h.Typeflag == tar.TypeLink:
+		tgt, err := f.getInode(op, i.h.Linkname)
+		if err != nil {
+			return nil, err
+		}
+		r = tar.NewReader(io.NewSectionReader(f.r, tgt.off, tgt.sz))
+	case typ&fs.ModeSymlink != 0: // typ.IsSymlink()
 		return f.ReadFile(i.h.Linkname)
+	default:
+		// Pretend all other kinds of files don't exist.
+		return nil, &fs.PathError{
+			Op:   op,
+			Path: name,
+			Err:  fs.ErrExist,
+		}
 	}
-	r := tar.NewReader(io.NewSectionReader(f.r, i.off, i.sz))
 	if _, err := r.Next(); err != nil {
 		return nil, &fs.PathError{
 			Op:   op,

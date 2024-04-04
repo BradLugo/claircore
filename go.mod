@@ -55,6 +55,7 @@ require (
 	github.com/prometheus/common v0.48.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/stretchr/objx v0.5.0 // indirect
 	go.opentelemetry.io/otel/metric v1.24.0 // indirect
 	golang.org/x/mod v0.16.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
