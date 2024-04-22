@@ -21,11 +21,47 @@ images you plan to scan
 
 ### Basic components
 
-ClairCore's main entire points are through `libindex`, a module that indexes containers and reports all packages for
-layer, and `libvuln`, a module that matches packages with vulnerability data.
+ClairCore's main entire points are:
+- `libindex`, a module that indexes packages and reports all packages for each layer
+- `libvuln`, a module that matches packages with vulnerability data
 
 #### libindex
 
+```go
+package main
+
+import (
+	"context"
+	"net/http"
+	"os"
+
+	"github.com/quay/claircore"
+	"github.com/quay/claircore/datastore/postgres"
+	"github.com/quay/claircore/libindex"
+	"github.com/quay/claircore/pkg/ctxlock"
+)
+
+func main() {
+	ctx := context.Background()
+	pool, _ := postgres.Connect(ctx, "connection string", "libindex-test")
+	store, _ := postgres.InitPostgresIndexerStore(ctx, pool, true)
+
+	ctxLocker, _ := ctxlock.New(ctx, pool)
+
+	opts := &libindex.Options{
+		Store:      store,
+		Locker:     ctxLocker,
+		FetchArena: libindex.NewRemoteFetchArena(http.DefaultClient, os.TempDir()),
+		// see definition for more configuration options
+	}
+	
+	lib, _ := libindex.New(ctx, opts, http.DefaultClient)
+	m := &claircore.Manifest{}
+
+	indexReport, _ := lib.Index(ctx, m)
+}
+
+```
 
 #### libvuln
 
@@ -64,6 +100,7 @@ func main() {
 }
 
 ```
+
 
 ## Development
 
