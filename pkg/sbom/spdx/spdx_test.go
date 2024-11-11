@@ -3,14 +3,11 @@ package spdx
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/quay/claircore"
 	"github.com/quay/claircore/pkg/cpe"
@@ -18,13 +15,7 @@ import (
 	"github.com/spdx/tools-golang/tagvalue"
 )
 
-func TestIndexReportsRoundTrip(t *testing.T) {
-	opts := cmp.Options{
-		cmp.AllowUnexported(claircore.IndexReport{}),
-		cmpopts.IgnoreFields(claircore.IndexReport{}, "Hash"),
-		cmpopts.IgnoreFields(claircore.Environment{}, "IntroducedIn"),
-	}
-
+func TestIndexReports(t *testing.T) {
 	ms, err := filepath.Glob("testdata/indexreport*.json")
 	if err != nil {
 		t.Fatal(err)
@@ -37,12 +28,12 @@ func TestIndexReportsRoundTrip(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer f.Close()
-			b, _ := ioutil.ReadAll(f)
+			b, _ := io.ReadAll(f)
 			ir1 := &claircore.IndexReport{}
 			if err := json.Unmarshal(b, ir1); err != nil {
 				t.Fatal(err)
 			}
-			s, err := ParseIndexReport(ir1)
+			s, err := parseIndexReport(ir1)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -56,33 +47,15 @@ func TestIndexReportsRoundTrip(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Log(string(sReport))
-			ir2, err := ParseSPDXDocument(s)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !cmp.Equal(ir1, ir2, opts) {
-				t.Error(cmp.Diff(ir2, ir1, opts))
-			}
-			// iReport, err := json.MarshalIndent(ir2, "", "  ")
-			// if err != nil {
-			// 	t.Fatal(err)
-			// }
-			//t.Log(string(iReport))
 		})
 	}
-
 }
 
-func TestParseRoundTrip(t *testing.T) {
-	opts := cmp.Options{
-		cmp.AllowUnexported(claircore.IndexReport{}),
-		cmpopts.IgnoreFields(claircore.IndexReport{}, "Hash"),
-		cmpopts.IgnoreFields(claircore.Environment{}, "IntroducedIn"),
-	}
+func TestParse(t *testing.T) {
 	for _, tt := range testIndexReports {
 		t.Run(tt.name, func(t *testing.T) {
 
-			s, err := ParseIndexReport(tt.indexReport)
+			s, err := parseIndexReport(tt.indexReport)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -96,19 +69,6 @@ func TestParseRoundTrip(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Log(string(sReport))
-			ir, err := ParseSPDXDocument(s)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !cmp.Equal(ir, tt.indexReport, opts) {
-				t.Error(cmp.Diff(tt.indexReport, ir, opts))
-			}
-			iReport, err := json.MarshalIndent(ir, "", "  ")
-			if err != nil {
-				t.Fatal(err)
-			}
-			t.Log(string(iReport))
-
 		})
 	}
 }
