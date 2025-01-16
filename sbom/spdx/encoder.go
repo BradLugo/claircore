@@ -122,6 +122,7 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 			for _, env := range ir.Environments[r.Package.ID] {
 				if env.PackageDB != "" {
 					pkgDB = env.PackageDB
+					break
 				}
 			}
 
