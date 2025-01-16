@@ -28,6 +28,7 @@ func TestEncoder(t *testing.T) {
 				CreatorType: "Organization",
 			},
 		},
+		DocumentName: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		// TODO: make this more like a namespace
 		DocumentNamespace: "Test SPDX encoder namespace",
 		DocumentComment:   "Test SPDX encoder comment",

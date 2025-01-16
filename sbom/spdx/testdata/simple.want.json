@@ -98,11 +98,6 @@
       "summary": "repository",
       "externalRefs": [
         {
-          "referenceCategory": "SECURITY",
-          "referenceType": "cpe23Type",
-          "referenceLocator": ""
-        },
-        {
           "referenceCategory": "OTHER",
           "referenceType": "uri",
           "referenceLocator": "https://repo1.maven.apache.org/maven2"
