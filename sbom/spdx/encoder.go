@@ -11,19 +11,14 @@ import (
 	"github.com/quay/claircore"
 	"github.com/quay/claircore/sbom"
 
-	"github.com/spdx/tools-golang/convert"
 	"github.com/spdx/tools-golang/spdx/common"
 	v2common "github.com/spdx/tools-golang/spdx/v2/common"
-	"github.com/spdx/tools-golang/spdx/v2/v2_1"
-	"github.com/spdx/tools-golang/spdx/v2/v2_2"
 	"github.com/spdx/tools-golang/spdx/v2/v2_3"
 )
 
 type Version string
 
 const (
-	V2_1 Version = "v2.1"
-	V2_2 Version = "v2.2"
 	V2_3 Version = "v2.3"
 )
 
@@ -57,20 +52,9 @@ func (e *Encoder) Encode(ctx context.Context, ir *claircore.IndexReport) (io.Rea
 		return nil, err
 	}
 
+	// TODO(blugo): support SPDX versions before 2.3
 	var tmpConverterDoc common.AnyDocument
 	switch e.Version {
-	case V2_1:
-		var targetDoc v2_1.Document
-		if err := convert.Document(spdx, targetDoc); err != nil {
-			return nil, err
-		}
-		tmpConverterDoc = targetDoc
-	case V2_2:
-		var targetDoc v2_2.Document
-		if err := convert.Document(spdx, targetDoc); err != nil {
-			return nil, err
-		}
-		tmpConverterDoc = targetDoc
 	case V2_3:
 		// parseIndexReport currently returns a v2_3.Document so do nothing
 		tmpConverterDoc = spdx
