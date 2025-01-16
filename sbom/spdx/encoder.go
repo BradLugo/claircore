@@ -80,9 +80,6 @@ func (e *Encoder) Encode(ctx context.Context, ir *claircore.IndexReport) (io.Rea
 
 	switch e.Format {
 	case JSON:
-		// TODO(DO NOT MERGE): Should this be outside the switch? i.e., should
-		//  we use this for all formatting cases? We could return it outside the
-		//  switch as the "default" case
 		buf := &bytes.Buffer{}
 		if err := spdxjson.Write(tmpConverterDoc, buf); err != nil {
 			return nil, err
