@@ -38,6 +38,7 @@ type Encoder struct {
 	Version           Version
 	Format            Format
 	Creators          []Creator
+	DocumentName      string
 	DocumentNamespace string
 	DocumentComment   string
 }
@@ -84,11 +85,10 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 
 	// Initial metadata
 	out := &v2_3.Document{
-		SPDXVersion:    v2_3.Version,
-		DataLicense:    v2_3.DataLicense,
-		SPDXIdentifier: "DOCUMENT",
-		// TODO(DO NOT MERGE): Is this ok?
-		DocumentName:      ir.Hash.String(),
+		SPDXVersion:       v2_3.Version,
+		DataLicense:       v2_3.DataLicense,
+		SPDXIdentifier:    "DOCUMENT",
+		DocumentName:      e.DocumentName,
 		DocumentNamespace: e.DocumentNamespace,
 		CreationInfo: &v2_3.CreationInfo{
 			Creators: spdxCreators,
