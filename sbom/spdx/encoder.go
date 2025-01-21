@@ -6,6 +6,7 @@ import (
 	"fmt"
 	spdxjson "github.com/spdx/tools-golang/json"
 	"io"
+	"sort"
 	"time"
 
 	"github.com/quay/claircore"
@@ -110,9 +111,9 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 		// associated with two different Ecosystems and one of those Ecosystems
 		// doesn't have the RepositoryScanner. If something like that happens,
 		// we'll have the Repository information in another IndexRecord.
-		if r.Repository == nil || r.Repository.ID == "" {
-			continue
-		}
+		//if r.Repository == nil || r.Repository.ID == "" {
+		//	continue
+		//}
 
 		pkg, ok := pkgMap[r.Package.ID]
 
@@ -128,7 +129,7 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 
 			pkg = &v2_3.Package{
 				PackageName:             r.Package.Name,
-				PackageSPDXIdentifier:   v2common.ElementID("pkg:" + r.Package.ID),
+				PackageSPDXIdentifier:   v2common.ElementID("Package-" + r.Package.ID),
 				PackageVersion:          r.Package.Version,
 				PackageFileName:         pkgDB,
 				PackageDownloadLocation: "NOASSERTION",
@@ -136,17 +137,21 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 				PrimaryPackagePurpose:   "APPLICATION",
 			}
 			pkgMap[r.Package.ID] = pkg
-			out.Packages = append(out.Packages, pkg)
+			//out.Packages = append(out.Packages, pkg)
 
 			if r.Package.Source != nil && r.Package.Source.Name != "" {
 				srcPkg := &v2_3.Package{
 					PackageName:             r.Package.Source.Name,
-					PackageSPDXIdentifier:   v2common.ElementID("src-pkg:" + r.Package.Source.ID),
+					PackageSPDXIdentifier:   v2common.ElementID("Package-" + r.Package.Source.ID),
 					PackageVersion:          r.Package.Source.Version,
 					PackageDownloadLocation: "NOASSERTION",
 					PrimaryPackagePurpose:   "SOURCE",
 				}
-				out.Packages = append(out.Packages, srcPkg)
+				//out.Packages = append(out.Packages, srcPkg)
+				// TODO(DO NOT MERGE): Is there a reason we don't want to put
+				//  the source package here? It'll be skipped if we see it
+				//  again, but is that a problem?
+				pkgMap[r.Package.Source.ID] = srcPkg
 				rels = append(rels, &v2_3.Relationship{
 					RefA:         v2common.MakeDocElementID("", string(pkg.PackageSPDXIdentifier)),
 					RefB:         v2common.MakeDocElementID("", string(srcPkg.PackageSPDXIdentifier)),
@@ -194,7 +199,7 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 					PrimaryPackagePurpose:     "OTHER",
 				}
 				repoMap[r.Repository.ID] = repo
-				out.Packages = append(out.Packages, repo)
+				//out.Packages = append(out.Packages, repo)
 			}
 			rel := &v2_3.Relationship{
 				RefA:         v2common.MakeDocElementID("", string(pkg.PackageSPDXIdentifier)),
@@ -244,7 +249,7 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 
 				dist = &v2_3.Package{
 					PackageName:               r.Distribution.Name,
-					PackageSPDXIdentifier:     v2common.ElementID("dist:" + r.Distribution.ID),
+					PackageSPDXIdentifier:     v2common.ElementID("Distribution-" + r.Distribution.ID),
 					PackageVersion:            r.Distribution.Version,
 					PackageDownloadLocation:   "NOASSERTION",
 					FilesAnalyzed:             true,
@@ -253,7 +258,7 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 					PrimaryPackagePurpose:     "OPERATING-SYSTEM",
 				}
 				distMap[r.Distribution.ID] = dist
-				out.Packages = append(out.Packages, dist)
+				//out.Packages = append(out.Packages, dist)
 			}
 			rel := &v2_3.Relationship{
 				RefA:         v2common.MakeDocElementID("", string(pkg.PackageSPDXIdentifier)),
@@ -264,30 +269,67 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 		}
 	}
 
-	// TODO(DO NOT MERGE): In case we want to add layers to the first iteration
-	//layerMap := map[string]*v2_3.Package{}
-	//for pkgID, envs := range ir.Environments {
-	//	for _, e := range envs {
-	//		pkg, ok := layerMap[e.IntroducedIn.String()]
-	//		if !ok {
-	//			pkg = &v2_3.Package{
-	//				PackageName:             e.IntroducedIn.String(),
-	//				PackageSPDXIdentifier:   v2common.ElementID(uuid.New().String()),
-	//				PackageDownloadLocation: "NOASSERTION",
-	//				FilesAnalyzed:           true,
-	//				PackageSummary:          "layer",
-	//			}
-	//			out.Packages = append(out.Packages, pkg)
-	//			layerMap[e.IntroducedIn.String()] = pkg
-	//		}
-	//		rel := &v2_3.Relationship{
-	//			RefA:         v2common.MakeDocElementID("", pkgID),
-	//			RefB:         v2common.MakeDocElementID("", string(pkg.PackageSPDXIdentifier)),
-	//			Relationship: "CONTAINED_BY",
-	//		}
-	//		rels = append(rels, rel)
-	//	}
-	//}
+	// TODO(DO NOT MERGE): I don't love this but I couldn't think of another
+	//  way to create a deterministic output to test against
+	out.Packages = make([]*v2_3.Package, len(pkgMap)+len(distMap)+len(repoMap))
+
+	i := 0
+	for _, v := range pkgMap {
+		for j := 0; j <= i; j++ {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			if out.Packages[j] == nil {
+				out.Packages[j] = v
+				break
+			}
+			if string(v.PackageSPDXIdentifier) < string(out.Packages[j].PackageSPDXIdentifier) {
+				out.Packages[j], out.Packages[j+1] = v, out.Packages[j]
+				break
+			}
+		}
+		i++
+	}
+
+	for _, v := range distMap {
+		for j := len(pkgMap); j <= i; j++ {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			if out.Packages[j] == nil {
+				out.Packages[j] = v
+				break
+			}
+			if string(v.PackageSPDXIdentifier) < string(out.Packages[j].PackageSPDXIdentifier) {
+				out.Packages[j], out.Packages[j+1] = v, out.Packages[j]
+				break
+			}
+		}
+		i++
+	}
+
+	for _, v := range repoMap {
+		for j := len(pkgMap) + len(distMap); j <= i; j++ {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			if out.Packages[j] == nil {
+				out.Packages[j] = v
+				break
+			}
+			if string(v.PackageSPDXIdentifier) < string(out.Packages[j].PackageSPDXIdentifier) {
+				out.Packages[j], out.Packages[j+1] = v, out.Packages[j]
+				break
+			}
+		}
+		i++
+	}
+
+	// TODO(DO NOT MERGE): Do we need to check the context? If not, we should remove it other places.
+	//  If we do, we probably need to create a bespoke sorting method like above
+	sort.SliceStable(rels, func(i, j int) bool {
+		return rels[i].RefA.DocumentRefID <= rels[j].RefA.DocumentRefID || rels[i].RefA.DocumentRefID == rels[j].RefA.DocumentRefID && rels[i].RefB.DocumentRefID <= rels[j].RefB.DocumentRefID
+	})
 
 	out.Relationships = rels
 

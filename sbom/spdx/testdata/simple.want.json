@@ -14,8 +14,16 @@
   },
   "packages": [
     {
+      "name": "package B source",
+      "SPDXID": "SPDXRef-Package-122",
+      "versionInfo": "v1.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "primaryPackagePurpose": "SOURCE"
+    },
+    {
       "name": "package A",
-      "SPDXID": "SPDXRef-pkg:123",
+      "SPDXID": "SPDXRef-Package-123",
       "versionInfo": "v1.0.0",
       "packageFileName": "bdb:var/lib/rpm",
       "downloadLocation": "NOASSERTION",
@@ -23,36 +31,17 @@
       "primaryPackagePurpose": "APPLICATION"
     },
     {
-      "name": "package B source",
-      "SPDXID": "SPDXRef-src-pkg:122",
-      "versionInfo": "v1.0.0",
-      "downloadLocation": "NOASSERTION",
-      "filesAnalyzed": false,
-      "primaryPackagePurpose": "SOURCE"
-    },
-    {
-      "name": "cpe:/a:redhat:rhel_eus:8.6::appstream",
-      "SPDXID": "SPDXRef-repo:11",
+      "name": "package B",
+      "SPDXID": "SPDXRef-Package-456",
+      "versionInfo": "v2.0.0",
+      "packageFileName": "maven:opt/couchbase/lib/cbas/repo/eventstream-1.0.1.jar",
       "downloadLocation": "NOASSERTION",
       "filesAnalyzed": true,
-      "summary": "repository",
-      "externalRefs": [
-        {
-          "referenceCategory": "SECURITY",
-          "referenceType": "cpe23Type",
-          "referenceLocator": "cpe:2.3:a:redhat:rhel_eus:8.6:*:appstream:*:*:*:*:*"
-        },
-        {
-          "referenceCategory": "OTHER",
-          "referenceType": "key",
-          "referenceLocator": "rhel-cpe-repository"
-        }
-      ],
-      "primaryPackagePurpose": "OTHER"
+      "primaryPackagePurpose": "APPLICATION"
     },
     {
       "name": "Red Hat Enterprise Linux Server",
-      "SPDXID": "SPDXRef-dist:13",
+      "SPDXID": "SPDXRef-Distribution-13",
       "versionInfo": "7",
       "downloadLocation": "NOASSERTION",
       "filesAnalyzed": true,
@@ -82,13 +71,24 @@
       "primaryPackagePurpose": "OPERATING-SYSTEM"
     },
     {
-      "name": "package B",
-      "SPDXID": "SPDXRef-pkg:456",
-      "versionInfo": "v2.0.0",
-      "packageFileName": "maven:opt/couchbase/lib/cbas/repo/eventstream-1.0.1.jar",
+      "name": "cpe:/a:redhat:rhel_eus:8.6::appstream",
+      "SPDXID": "SPDXRef-repo:11",
       "downloadLocation": "NOASSERTION",
       "filesAnalyzed": true,
-      "primaryPackagePurpose": "APPLICATION"
+      "summary": "repository",
+      "externalRefs": [
+        {
+          "referenceCategory": "SECURITY",
+          "referenceType": "cpe23Type",
+          "referenceLocator": "cpe:2.3:a:redhat:rhel_eus:8.6:*:appstream:*:*:*:*:*"
+        },
+        {
+          "referenceCategory": "OTHER",
+          "referenceType": "key",
+          "referenceLocator": "rhel-cpe-repository"
+        }
+      ],
+      "primaryPackagePurpose": "OTHER"
     },
     {
       "name": "maven",
@@ -108,23 +108,23 @@
   ],
   "relationships": [
     {
-      "spdxElementId": "SPDXRef-pkg:123",
-      "relatedSpdxElement": "SPDXRef-src-pkg:122",
+      "spdxElementId": "SPDXRef-Package-456",
+      "relatedSpdxElement": "SPDXRef-repo:12",
+      "relationshipType": "CONTAINED_BY"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-123",
+      "relatedSpdxElement": "SPDXRef-Package-122",
       "relationshipType": "GENERATED_FROM"
     },
     {
-      "spdxElementId": "SPDXRef-pkg:123",
+      "spdxElementId": "SPDXRef-Package-123",
       "relatedSpdxElement": "SPDXRef-repo:11",
       "relationshipType": "CONTAINED_BY"
     },
     {
-      "spdxElementId": "SPDXRef-pkg:123",
-      "relatedSpdxElement": "SPDXRef-dist:13",
-      "relationshipType": "CONTAINED_BY"
-    },
-    {
-      "spdxElementId": "SPDXRef-pkg:456",
-      "relatedSpdxElement": "SPDXRef-repo:12",
+      "spdxElementId": "SPDXRef-Package-123",
+      "relatedSpdxElement": "SPDXRef-Distribution-13",
       "relationshipType": "CONTAINED_BY"
     }
   ]
