@@ -7,6 +7,7 @@ import (
 	spdxjson "github.com/spdx/tools-golang/json"
 	"io"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/quay/claircore"
@@ -257,8 +258,7 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 					PackageSummary:            "distribution",
 					PrimaryPackagePurpose:     "OPERATING-SYSTEM",
 				}
-				distMap[r.Distribution.ID] = dist
-				//out.Packages = append(out.Packages, dist)
+				distMap[r.Distribution.ID] = dist //out.Packages = append(out.Packages, dist)
 			}
 			rel := &v2_3.Relationship{
 				RefA:         v2common.MakeDocElementID("", string(pkg.PackageSPDXIdentifier)),
@@ -269,69 +269,75 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 		}
 	}
 
-	// TODO(DO NOT MERGE): I don't love this but I couldn't think of another
-	//  way to create a deterministic output to test against
+	// TODO(DO NOT MERGE): :(
 	out.Packages = make([]*v2_3.Package, len(pkgMap)+len(distMap)+len(repoMap))
 
+	pkgIds := make([]int, len(pkgMap))
+	distIds := make([]int, len(distMap))
+	repoIds := make([]int, len(repoMap))
 	i := 0
-	for _, v := range pkgMap {
-		for j := 0; j <= i; j++ {
-			if ctx.Err() != nil {
-				return nil, ctx.Err()
-			}
-			if out.Packages[j] == nil {
-				out.Packages[j] = v
-				break
-			}
-			if string(v.PackageSPDXIdentifier) < string(out.Packages[j].PackageSPDXIdentifier) {
-				out.Packages[j], out.Packages[j+1] = v, out.Packages[j]
-				break
-			}
+	for k, _ := range pkgMap {
+		id, err := strconv.Atoi(k)
+		if err != nil {
+			return nil, err
 		}
+		pkgIds[i] = id
+		i++
+	}
+	i = 0
+	for k, _ := range distMap {
+		id, err := strconv.Atoi(k)
+		if err != nil {
+			return nil, err
+		}
+		distIds[i] = id
+		i++
+	}
+	i = 0
+	for k, _ := range repoMap {
+		id, err := strconv.Atoi(k)
+		if err != nil {
+			return nil, err
+		}
+		repoIds[i] = id
 		i++
 	}
 
-	for _, v := range distMap {
-		for j := len(pkgMap); j <= i; j++ {
-			if ctx.Err() != nil {
-				return nil, ctx.Err()
-			}
-			if out.Packages[j] == nil {
-				out.Packages[j] = v
-				break
-			}
-			if string(v.PackageSPDXIdentifier) < string(out.Packages[j].PackageSPDXIdentifier) {
-				out.Packages[j], out.Packages[j+1] = v, out.Packages[j]
-				break
-			}
-		}
+	sort.Ints(pkgIds)
+	sort.Ints(distIds)
+	sort.Ints(repoIds)
+
+	i = 0
+	for _, id := range pkgIds {
+		out.Packages[i] = pkgMap[strconv.Itoa(id)]
+		i++
+	}
+	for _, id := range distIds {
+		out.Packages[i] = distMap[strconv.Itoa(id)]
+		i++
+	}
+	for _, id := range repoIds {
+		out.Packages[i] = repoMap[strconv.Itoa(id)]
 		i++
 	}
 
-	for _, v := range repoMap {
-		for j := len(pkgMap) + len(distMap); j <= i; j++ {
-			if ctx.Err() != nil {
-				return nil, ctx.Err()
-			}
-			if out.Packages[j] == nil {
-				out.Packages[j] = v
-				break
-			}
-			if string(v.PackageSPDXIdentifier) < string(out.Packages[j].PackageSPDXIdentifier) {
-				out.Packages[j], out.Packages[j+1] = v, out.Packages[j]
-				break
+	// TODO(DO NOT MERGE): :(
+	for _, pkg := range out.Packages {
+		var toSort []*v2_3.Relationship
+		for _, rel := range rels {
+			if rel.RefA.ElementRefID == pkg.PackageSPDXIdentifier {
+				toSort = append(toSort, rel)
 			}
 		}
-		i++
+		sort.SliceStable(toSort, func(i, j int) bool {
+			return toSort[i].RefB.ElementRefID < toSort[j].RefB.ElementRefID ||
+				toSort[i].RefB.ElementRefID == toSort[j].RefB.ElementRefID &&
+					toSort[i].Relationship < toSort[j].Relationship
+		})
+		out.Relationships = append(out.Relationships, toSort...)
 	}
 
-	// TODO(DO NOT MERGE): Do we need to check the context? If not, we should remove it other places.
-	//  If we do, we probably need to create a bespoke sorting method like above
-	sort.SliceStable(rels, func(i, j int) bool {
-		return rels[i].RefA.DocumentRefID <= rels[j].RefA.DocumentRefID || rels[i].RefA.DocumentRefID == rels[j].RefA.DocumentRefID && rels[i].RefB.DocumentRefID <= rels[j].RefB.DocumentRefID
-	})
-
-	out.Relationships = rels
+	//out.Relationships = rels
 
 	return out, nil
 }

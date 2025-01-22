@@ -10,9 +10,18 @@
       "Tool: Claircore",
       "Organization: Clair"
     ],
-    "created": "2025-01-21T15:18:03Z"
+    "created": "2025-01-21T16:42:44Z"
   },
   "packages": [
+    {
+      "name": "tzdata",
+      "SPDXID": "SPDXRef-Package-874",
+      "versionInfo": "2024b-0+deb12u1",
+      "packageFileName": "var/lib/dpkg/status.d/tzdata",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": true,
+      "primaryPackagePurpose": "APPLICATION"
+    },
     {
       "name": "base-files",
       "SPDXID": "SPDXRef-Package-1666",
@@ -31,7 +40,6 @@
       "filesAnalyzed": true,
       "primaryPackagePurpose": "APPLICATION"
     },
-    null,
     {
       "name": "Debian GNU/Linux",
       "SPDXID": "SPDXRef-Distribution-2",
@@ -61,17 +69,17 @@
   ],
   "relationships": [
     {
-      "spdxElementId": "SPDXRef-Package-1840",
-      "relatedSpdxElement": "SPDXRef-Distribution-2",
-      "relationshipType": "CONTAINED_BY"
-    },
-    {
       "spdxElementId": "SPDXRef-Package-874",
       "relatedSpdxElement": "SPDXRef-Distribution-2",
       "relationshipType": "CONTAINED_BY"
     },
     {
       "spdxElementId": "SPDXRef-Package-1666",
+      "relatedSpdxElement": "SPDXRef-Distribution-2",
+      "relationshipType": "CONTAINED_BY"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-1840",
       "relatedSpdxElement": "SPDXRef-Distribution-2",
       "relationshipType": "CONTAINED_BY"
     }

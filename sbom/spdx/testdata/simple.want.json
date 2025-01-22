@@ -108,8 +108,8 @@
   ],
   "relationships": [
     {
-      "spdxElementId": "SPDXRef-Package-456",
-      "relatedSpdxElement": "SPDXRef-repo:12",
+      "spdxElementId": "SPDXRef-Package-123",
+      "relatedSpdxElement": "SPDXRef-Distribution-13",
       "relationshipType": "CONTAINED_BY"
     },
     {
@@ -123,8 +123,8 @@
       "relationshipType": "CONTAINED_BY"
     },
     {
-      "spdxElementId": "SPDXRef-Package-123",
-      "relatedSpdxElement": "SPDXRef-Distribution-13",
+      "spdxElementId": "SPDXRef-Package-456",
+      "relatedSpdxElement": "SPDXRef-repo:12",
       "relationshipType": "CONTAINED_BY"
     }
   ]
