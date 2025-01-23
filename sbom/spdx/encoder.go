@@ -2,12 +2,14 @@ package spdx
 
 import (
 	"bytes"
+	"container/heap"
 	"context"
 	"fmt"
 	spdxjson "github.com/spdx/tools-golang/json"
 	"io"
-	"sort"
+	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/quay/claircore"
@@ -99,27 +101,18 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 		DocumentComment: e.DocumentComment,
 	}
 
+	orderablePackages := &spdxPackageHeap{}
+	seen := map[v2common.ElementID]interface{}{}
 	var rels []*v2_3.Relationship
-	repoMap := map[string]*v2_3.Package{}
-	distMap := map[string]*v2_3.Package{}
-	pkgMap := map[string]*v2_3.Package{}
 	for _, r := range ir.IndexRecords() {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
 
-		// This could happen if the PackageScanner that found this package is
-		// associated with two different Ecosystems and one of those Ecosystems
-		// doesn't have the RepositoryScanner. If something like that happens,
-		// we'll have the Repository information in another IndexRecord.
-		//if r.Repository == nil || r.Repository.ID == "" {
-		//	continue
-		//}
-
-		pkg, ok := pkgMap[r.Package.ID]
+		packageSpdxId := v2common.ElementID("Package-" + r.Package.ID)
 
 		// Record the package if we haven't seen it yet.
-		if !ok {
+		if _, ok := seen[packageSpdxId]; !ok {
 			pkgDB := ""
 			for _, env := range ir.Environments[r.Package.ID] {
 				if env.PackageDB != "" {
@@ -128,43 +121,70 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 				}
 			}
 
-			pkg = &v2_3.Package{
+			orderablePkgId, err := strconv.Atoi(r.Package.ID)
+			if err != nil {
+				// TODO
+				return nil, err
+			}
+			pkg := &v2_3.Package{
 				PackageName:             r.Package.Name,
-				PackageSPDXIdentifier:   v2common.ElementID("Package-" + r.Package.ID),
+				PackageSPDXIdentifier:   packageSpdxId,
 				PackageVersion:          r.Package.Version,
 				PackageFileName:         pkgDB,
 				PackageDownloadLocation: "NOASSERTION",
 				FilesAnalyzed:           true,
 				PrimaryPackagePurpose:   "APPLICATION",
 			}
-			pkgMap[r.Package.ID] = pkg
-			//out.Packages = append(out.Packages, pkg)
+
+			orderablePkg := orderableSpdxPackage{
+				recordType: claircorePackage,
+				id:         orderablePkgId,
+				pkg:        pkg,
+			}
+
+			heap.Push(orderablePackages, orderablePkg)
+			seen[packageSpdxId] = struct{}{}
 
 			if r.Package.Source != nil && r.Package.Source.Name != "" {
-				srcPkg := &v2_3.Package{
-					PackageName:             r.Package.Source.Name,
-					PackageSPDXIdentifier:   v2common.ElementID("Package-" + r.Package.Source.ID),
-					PackageVersion:          r.Package.Source.Version,
-					PackageDownloadLocation: "NOASSERTION",
-					PrimaryPackagePurpose:   "SOURCE",
+				srcPackageSpdxId := v2common.ElementID("Package-" + r.Package.Source.ID)
+
+				// Record the source package if we haven't seen it yet.
+				if _, ok := seen[srcPackageSpdxId]; !ok {
+					orderableSrcPkgId, err := strconv.Atoi(r.Package.Source.ID)
+					if err != nil {
+						// TODO
+						return nil, err
+					}
+					srcPkg := &v2_3.Package{
+						PackageName:             r.Package.Source.Name,
+						PackageSPDXIdentifier:   srcPackageSpdxId,
+						PackageVersion:          r.Package.Source.Version,
+						PackageDownloadLocation: "NOASSERTION",
+						PrimaryPackagePurpose:   "SOURCE",
+					}
+
+					orderableSrcPkg := orderableSpdxPackage{
+						recordType: claircorePackage,
+						id:         orderableSrcPkgId,
+						pkg:        srcPkg,
+					}
+
+					heap.Push(orderablePackages, orderableSrcPkg)
+					seen[srcPackageSpdxId] = struct{}{}
+
+					rels = append(rels, &v2_3.Relationship{
+						RefA:         v2common.MakeDocElementID("", string(packageSpdxId)),
+						RefB:         v2common.MakeDocElementID("", string(srcPackageSpdxId)),
+						Relationship: "GENERATED_FROM",
+					})
 				}
-				//out.Packages = append(out.Packages, srcPkg)
-				// TODO(DO NOT MERGE): Is there a reason we don't want to put
-				//  the source package here? It'll be skipped if we see it
-				//  again, but is that a problem?
-				pkgMap[r.Package.Source.ID] = srcPkg
-				rels = append(rels, &v2_3.Relationship{
-					RefA:         v2common.MakeDocElementID("", string(pkg.PackageSPDXIdentifier)),
-					RefB:         v2common.MakeDocElementID("", string(srcPkg.PackageSPDXIdentifier)),
-					Relationship: "GENERATED_FROM",
-				})
 			}
 		}
 
 		// Record Repositories for this package.
 		if r.Repository != nil {
-			repo, ok := repoMap[r.Repository.ID]
-			if !ok {
+			repoSpdxId := v2common.ElementID("Repository-" + r.Repository.ID)
+			if _, ok := seen[repoSpdxId]; !ok {
 				var extRefs []*v2_3.PackageExternalReference
 				if r.Repository.CPE.String() != "" {
 					extRefs = append(extRefs, &v2_3.PackageExternalReference{
@@ -190,21 +210,31 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 					})
 				}
 
-				repo = &v2_3.Package{
+				orderableRepoId, err := strconv.Atoi(r.Repository.ID)
+				if err != nil {
+					// TODO
+					return nil, err
+				}
+				repo := &v2_3.Package{
 					PackageName:               r.Repository.Name,
-					PackageSPDXIdentifier:     v2common.ElementID("repo:" + r.Repository.ID),
+					PackageSPDXIdentifier:     repoSpdxId,
 					PackageDownloadLocation:   "NOASSERTION",
 					FilesAnalyzed:             true,
 					PackageSummary:            "repository",
 					PackageExternalReferences: extRefs,
 					PrimaryPackagePurpose:     "OTHER",
 				}
-				repoMap[r.Repository.ID] = repo
-				//out.Packages = append(out.Packages, repo)
+				orderableSrcPkg := orderableSpdxPackage{
+					recordType: claircoreRepository,
+					id:         orderableRepoId,
+					pkg:        repo,
+				}
+				heap.Push(orderablePackages, orderableSrcPkg)
+				seen[repoSpdxId] = struct{}{}
 			}
 			rel := &v2_3.Relationship{
-				RefA:         v2common.MakeDocElementID("", string(pkg.PackageSPDXIdentifier)),
-				RefB:         v2common.MakeDocElementID("", string(repo.PackageSPDXIdentifier)),
+				RefA:         v2common.MakeDocElementID("", string(packageSpdxId)),
+				RefB:         v2common.MakeDocElementID("", string(repoSpdxId)),
 				Relationship: "CONTAINED_BY",
 			}
 			rels = append(rels, rel)
@@ -212,8 +242,8 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 
 		// Record Distributions for this package.
 		if r.Distribution != nil {
-			dist, ok := distMap[r.Distribution.ID]
-			if !ok {
+			distroSpdxId := v2common.ElementID("Distribution-" + r.Distribution.ID)
+			if _, ok := seen[distroSpdxId]; !ok {
 				var extRefs []*v2_3.PackageExternalReference
 
 				if r.Distribution.CPE.String() != "" {
@@ -248,9 +278,14 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 					})
 				}
 
-				dist = &v2_3.Package{
+				orderableDistroId, err := strconv.Atoi(r.Distribution.ID)
+				if err != nil {
+					// TODO
+					return nil, err
+				}
+				dist := &v2_3.Package{
 					PackageName:               r.Distribution.Name,
-					PackageSPDXIdentifier:     v2common.ElementID("Distribution-" + r.Distribution.ID),
+					PackageSPDXIdentifier:     distroSpdxId,
 					PackageVersion:            r.Distribution.Version,
 					PackageDownloadLocation:   "NOASSERTION",
 					FilesAnalyzed:             true,
@@ -258,86 +293,46 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 					PackageSummary:            "distribution",
 					PrimaryPackagePurpose:     "OPERATING-SYSTEM",
 				}
-				distMap[r.Distribution.ID] = dist //out.Packages = append(out.Packages, dist)
+				orderableSrcPkg := orderableSpdxPackage{
+					recordType: claircoreDistribution,
+					id:         orderableDistroId,
+					pkg:        dist,
+				}
+				heap.Push(orderablePackages, orderableSrcPkg)
+				seen[distroSpdxId] = struct{}{}
 			}
 			rel := &v2_3.Relationship{
-				RefA:         v2common.MakeDocElementID("", string(pkg.PackageSPDXIdentifier)),
-				RefB:         v2common.MakeDocElementID("", string(dist.PackageSPDXIdentifier)),
+				RefA:         v2common.MakeDocElementID("", string(packageSpdxId)),
+				RefB:         v2common.MakeDocElementID("", string(distroSpdxId)),
 				Relationship: "CONTAINED_BY",
 			}
 			rels = append(rels, rel)
 		}
 	}
 
-	// TODO(DO NOT MERGE): :(
-	out.Packages = make([]*v2_3.Package, len(pkgMap)+len(distMap)+len(repoMap))
-
-	pkgIds := make([]int, len(pkgMap))
-	distIds := make([]int, len(distMap))
-	repoIds := make([]int, len(repoMap))
-	i := 0
-	for k, _ := range pkgMap {
-		id, err := strconv.Atoi(k)
-		if err != nil {
-			return nil, err
-		}
-		pkgIds[i] = id
-		i++
-	}
-	i = 0
-	for k, _ := range distMap {
-		id, err := strconv.Atoi(k)
-		if err != nil {
-			return nil, err
-		}
-		distIds[i] = id
-		i++
-	}
-	i = 0
-	for k, _ := range repoMap {
-		id, err := strconv.Atoi(k)
-		if err != nil {
-			return nil, err
-		}
-		repoIds[i] = id
-		i++
+	for orderablePackages.Len() > 0 {
+		pkg := heap.Pop(orderablePackages).(orderableSpdxPackage).pkg
+		out.Packages = append(out.Packages, pkg)
 	}
 
-	sort.Ints(pkgIds)
-	sort.Ints(distIds)
-	sort.Ints(repoIds)
-
-	i = 0
-	for _, id := range pkgIds {
-		out.Packages[i] = pkgMap[strconv.Itoa(id)]
-		i++
-	}
-	for _, id := range distIds {
-		out.Packages[i] = distMap[strconv.Itoa(id)]
-		i++
-	}
-	for _, id := range repoIds {
-		out.Packages[i] = repoMap[strconv.Itoa(id)]
-		i++
-	}
-
-	// TODO(DO NOT MERGE): :(
-	for _, pkg := range out.Packages {
-		var toSort []*v2_3.Relationship
-		for _, rel := range rels {
-			if rel.RefA.ElementRefID == pkg.PackageSPDXIdentifier {
-				toSort = append(toSort, rel)
-			}
-		}
-		sort.SliceStable(toSort, func(i, j int) bool {
-			return toSort[i].RefB.ElementRefID < toSort[j].RefB.ElementRefID ||
-				toSort[i].RefB.ElementRefID == toSort[j].RefB.ElementRefID &&
-					toSort[i].Relationship < toSort[j].Relationship
-		})
-		out.Relationships = append(out.Relationships, toSort...)
-	}
-
-	//out.Relationships = rels
+	slices.SortFunc(rels, cmpRelationship)
+	out.Relationships = rels
 
 	return out, nil
+}
+
+func cmpRelationship(a, b *v2_3.Relationship) int {
+	aRefAStr := string(a.RefA.ElementRefID)
+	bRefAStr := string(b.RefA.ElementRefID)
+	refACmp := strings.Compare(aRefAStr, bRefAStr)
+	if refACmp != 0 {
+		return refACmp
+	}
+
+	refBCpm := strings.Compare(string(a.RefB.ElementRefID), string(b.RefB.ElementRefID))
+	if refBCpm != 0 {
+		return refBCpm
+	}
+
+	return strings.Compare(a.Relationship, b.Relationship)
 }
