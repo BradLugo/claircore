@@ -1,7 +1,6 @@
 package spdx
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	spdxjson "github.com/spdx/tools-golang/json"
@@ -29,6 +28,7 @@ type Format string
 
 const JSON Format = "json"
 
+// Creator contains information about the creator of the
 type Creator struct {
 	Creator string
 	// In accordance to the SPDX v2 spec, CreatorType should be one of "Person", "Organization", or "Tool"
@@ -50,10 +50,10 @@ type Encoder struct {
 // We first convert the IndexReport to an SPDX doc of the latest version, then
 // convert that doc to the specified version. We assume there's no data munging
 // going from latest to the specified version.
-func (e *Encoder) Encode(ctx context.Context, ir *claircore.IndexReport) (io.Reader, error) {
+func (e *Encoder) Encode(ctx context.Context, w io.Writer, ir *claircore.IndexReport) error {
 	spdx, err := e.parseIndexReport(ctx, ir)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// TODO(blugo): support SPDX versions before 2.3
@@ -63,19 +63,18 @@ func (e *Encoder) Encode(ctx context.Context, ir *claircore.IndexReport) (io.Rea
 		// parseIndexReport currently returns a v2_3.Document so do nothing
 		tmpConverterDoc = spdx
 	default:
-		return nil, fmt.Errorf("unknown SPDX version: %v", e.Version)
+		return fmt.Errorf("unknown SPDX version: %v", e.Version)
 	}
 
 	switch e.Format {
 	case JSON:
-		buf := &bytes.Buffer{}
-		if err := spdxjson.Write(tmpConverterDoc, buf); err != nil {
-			return nil, err
+		if err := spdxjson.Write(tmpConverterDoc, w); err != nil {
+			return err
 		}
-		return buf, nil
+		return nil
 	}
 
-	return nil, fmt.Errorf("unknown requested format: %v", e.Format)
+	return fmt.Errorf("unknown requested format: %v", e.Format)
 }
 
 func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexReport) (*v2_3.Document, error) {

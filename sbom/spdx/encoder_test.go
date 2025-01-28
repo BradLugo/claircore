@@ -1,10 +1,12 @@
 package spdx
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"io/fs"
 	"os"
 	"path"
@@ -64,13 +66,16 @@ func TestEncoder(t *testing.T) {
 				t.Error(err)
 			}
 
+			var buf bytes.Buffer
 			var ir claircore.IndexReport
 			if err := json.NewDecoder(f).Decode(&ir); err != nil {
 				t.Error(err)
 			}
-			r, err := e.Encode(ctx, &ir)
+			if err := e.Encode(ctx, &buf, &ir); err != nil {
+				t.Error(err)
+			}
 			var got map[string]interface{}
-			if err := json.NewDecoder(r).Decode(&got); err != nil {
+			if err := json.NewDecoder(&buf).Decode(&got); err != nil {
 				t.Error(err)
 			}
 
