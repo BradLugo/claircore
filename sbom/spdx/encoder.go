@@ -7,7 +7,6 @@ import (
 	spdxjson "github.com/spdx/tools-golang/json"
 	"io"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -47,7 +46,7 @@ type Encoder struct {
 	DocumentComment   string
 }
 
-// Encode encodes a claircore IndexReport to an io.Reader.
+// Encode encodes a [claircore.IndexReport] to an [io.Reader].
 // We first convert the IndexReport to an SPDX doc of the latest version, then
 // convert that doc to the specified version. We assume there's no data munging
 // going from latest to the specified version.
@@ -80,11 +79,12 @@ func (e *Encoder) Encode(ctx context.Context, ir *claircore.IndexReport) (io.Rea
 }
 
 func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexReport) (*v2_3.Document, error) {
-	creatorInfo := e.Creators
-	spdxCreators := make([]v2common.Creator, len(creatorInfo))
-	for i, creator := range creatorInfo {
-		spdxCreators[i].Creator = creator.Creator
-		spdxCreators[i].CreatorType = creator.CreatorType
+	creators := make([]v2common.Creator, len(e.Creators))
+	for i, creator := range e.Creators {
+		creators[i] = v2common.Creator{
+			Creator:     creator.Creator,
+			CreatorType: creator.CreatorType,
+		}
 	}
 
 	// Initial metadata
@@ -95,7 +95,7 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 		DocumentName:      e.DocumentName,
 		DocumentNamespace: e.DocumentNamespace,
 		CreationInfo: &v2_3.CreationInfo{
-			Creators: spdxCreators,
+			Creators: creators,
 			Created:  time.Now().Format("2006-01-02T15:04:05Z"),
 		},
 		DocumentComment: e.DocumentComment,
@@ -232,7 +232,7 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 	// we need to order it since the IndexRecords aren't in a deterministic order.
 	// This is particular helpful for testing, but it wouldn't be unreasonable
 	// for a user to want to diff different versions of an SPDX of the same IndexReport.
-	sort.Ints(pkgIds)
+	slices.Sort(pkgIds)
 	for _, id := range pkgIds {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
@@ -246,7 +246,7 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 		out.Relationships = append(out.Relationships, rels...)
 	}
 
-	sort.Ints(distIds)
+	slices.Sort(distIds)
 	for _, id := range distIds {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
@@ -256,7 +256,7 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 		out.Packages = append(out.Packages, dist)
 	}
 
-	sort.Ints(repoIds)
+	slices.Sort(repoIds)
 	for _, id := range repoIds {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()

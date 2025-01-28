@@ -74,11 +74,9 @@ func TestEncoder(t *testing.T) {
 				t.Error(err)
 			}
 
-			// TODO(DO NO MERGE): This feels terrible
-			ignoreCreatedTimestamp := cmp.FilterPath(func(p cmp.Path) bool {
-				sf, ok := p.Index(3).(cmp.MapIndex)
-				return ok && sf.String() == `["created"]`
-			}, cmp.Ignore())
+			ignoreCreatedTimestamp := cmpopts.IgnoreMapEntries(func(k string, _ any) bool {
+				return k == "created"
+			})
 
 			if !cmp.Equal(want, got, ignoreCreatedTimestamp) {
 				t.Error(cmp.Diff(got, want, ignoreCreatedTimestamp))
