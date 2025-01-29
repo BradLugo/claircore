@@ -28,10 +28,12 @@ type Format string
 
 const JSON Format = "json"
 
-// Creator contains information about the creator of the
+// Creator describes the creator of the SPDX document that will be produced from the encoding.
 type Creator struct {
+	// Creator is the value of the [Creator] relationship.
 	Creator string
-	// In accordance to the SPDX v2 spec, CreatorType should be one of "Person", "Organization", or "Tool"
+	// CreatorType is the key of the [Creator] relationship.
+	// In accordance to the SPDX v2 spec, CreatorType should be one of "Person", "Organization", or "Tool".
 	CreatorType string
 }
 
