@@ -5,6 +5,7 @@ import (
 	"fmt"
 	spdxjson "github.com/spdx/tools-golang/json"
 	"io"
+	"runtime/debug"
 	"slices"
 	"strconv"
 	"strings"
@@ -46,6 +47,22 @@ type Encoder struct {
 	DocumentName      string
 	DocumentNamespace string
 	DocumentComment   string
+}
+
+func NewDefaultEncoder(documentName, documentNamespace, documentComment string) *Encoder {
+	return &Encoder{
+		Version: V2_3,
+		Format:  JSON,
+		Creators: []Creator{
+			{
+				Creator:     "Tool",
+				CreatorType: fmt.Sprintf("Claircore-%s", getVersion()),
+			},
+		},
+		DocumentName:      documentName,
+		DocumentNamespace: documentNamespace,
+		DocumentComment:   documentComment,
+	}
 }
 
 // Encode encodes a [claircore.IndexReport] to an [io.Reader].
@@ -375,4 +392,26 @@ func cmpRelationship(a, b *v2_3.Relationship) int {
 	}
 
 	return strings.Compare(a.Relationship, b.Relationship)
+}
+
+// getVersion will attempt to read out the current binary's debug info, find the
+// claircore version (this was copied from Clair).
+func getVersion() string {
+	info, infoOK := debug.ReadBuildInfo()
+	var core string
+	if infoOK {
+		for _, m := range info.Deps {
+			if m.Path != "github.com/quay/claircore" {
+				continue
+			}
+			core = m.Version
+			if m.Replace != nil && m.Replace.Version != m.Version {
+				core = m.Replace.Version
+			}
+		}
+	}
+	if core == "" {
+		core = "unknown revision"
+	}
+	return core
 }
