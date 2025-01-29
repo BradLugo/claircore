@@ -55,8 +55,8 @@ func NewDefaultEncoder(documentName, documentNamespace, documentComment string) 
 		Format:  JSON,
 		Creators: []Creator{
 			{
-				Creator:     "Tool",
-				CreatorType: fmt.Sprintf("Claircore-%s", getVersion()),
+				Creator:     fmt.Sprintf("Claircore-%s", getVersion()),
+				CreatorType: "Tool",
 			},
 		},
 		DocumentName:      documentName,
