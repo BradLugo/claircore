@@ -30,6 +30,8 @@ type Format string
 
 const JSONFormat Format = "json"
 
+type Option func(*Encoder)
+
 // Creator describes the creator of the SPDX document that will be produced from the encoding.
 type Creator struct {
 	// Creator is the value of the [Creator] relationship.
@@ -50,8 +52,8 @@ type Encoder struct {
 	DocumentComment   string
 }
 
-func NewDefaultEncoder(documentName, documentNamespace, documentComment string) *Encoder {
-	return &Encoder{
+func NewDefaultEncoder(options ...Option) *Encoder {
+	e := &Encoder{
 		Version: V2_3,
 		Format:  JSONFormat,
 		Creators: []Creator{
@@ -60,9 +62,30 @@ func NewDefaultEncoder(documentName, documentNamespace, documentComment string) 
 				CreatorType: "Tool",
 			},
 		},
-		DocumentName:      documentName,
-		DocumentNamespace: documentNamespace,
-		DocumentComment:   documentComment,
+	}
+
+	for _, opt := range options {
+		opt(e)
+	}
+
+	return e
+}
+
+func WithDocumentName(name string) Option {
+	return func(e *Encoder) {
+		e.DocumentName = name
+	}
+}
+
+func WithDocumentNamespace(namespace string) Option {
+	return func(e *Encoder) {
+		e.DocumentNamespace = namespace
+	}
+}
+
+func WithDocumentComment(comment string) Option {
+	return func(e *Encoder) {
+		e.DocumentComment = comment
 	}
 }
 
