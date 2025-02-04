@@ -3,13 +3,14 @@ package spdx
 import (
 	"context"
 	"fmt"
-	spdxjson "github.com/spdx/tools-golang/json"
 	"io"
 	"runtime/debug"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	spdxjson "github.com/spdx/tools-golang/json"
 
 	"github.com/quay/claircore"
 	"github.com/quay/claircore/sbom"
@@ -27,7 +28,7 @@ const (
 
 type Format string
 
-const JSON Format = "json"
+const JSONFormat Format = "json"
 
 // Creator describes the creator of the SPDX document that will be produced from the encoding.
 type Creator struct {
@@ -52,10 +53,10 @@ type Encoder struct {
 func NewDefaultEncoder(documentName, documentNamespace, documentComment string) *Encoder {
 	return &Encoder{
 		Version: V2_3,
-		Format:  JSON,
+		Format:  JSONFormat,
 		Creators: []Creator{
 			{
-				Creator:     fmt.Sprintf("Claircore-%s", getVersion()),
+				Creator:     "Claircore-" + getVersion(),
 				CreatorType: "Tool",
 			},
 		},
@@ -65,7 +66,7 @@ func NewDefaultEncoder(documentName, documentNamespace, documentComment string) 
 	}
 }
 
-// Encode encodes a [claircore.IndexReport] to an [io.Reader].
+// Encode encodes a [claircore.IndexReport] that writes to w.
 // We first convert the IndexReport to an SPDX doc of the latest version, then
 // convert that doc to the specified version. We assume there's no data munging
 // going from latest to the specified version.
@@ -86,7 +87,7 @@ func (e *Encoder) Encode(ctx context.Context, w io.Writer, ir *claircore.IndexRe
 	}
 
 	switch e.Format {
-	case JSON:
+	case JSONFormat:
 		if err := spdxjson.Write(tmpConverterDoc, w); err != nil {
 			return err
 		}
@@ -119,11 +120,11 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 		DocumentComment: e.DocumentComment,
 	}
 
-	pkgMap := map[int]*v2_3.Package{}
+	pkgs := make(map[int]*v2_3.Package)
 	var pkgIds []int
-	distMap := map[int]*v2_3.Package{}
+	dists := make(map[int]*v2_3.Package)
 	var distIds []int
-	repoMap := map[int]*v2_3.Package{}
+	repos := make(map[int]*v2_3.Package)
 	var repoIds []int
 	pkgRels := map[int][]*v2_3.Relationship{}
 	for _, r := range ir.IndexRecords() {
@@ -136,7 +137,7 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 			return nil, err
 		}
 
-		pkg, ok := pkgMap[rPkgId]
+		pkg, ok := pkgs[rPkgId]
 		// Record the package if we haven't seen it yet.
 		if !ok {
 			pkgDB := ""
@@ -157,7 +158,7 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 			pkg.FilesAnalyzed = true
 			pkg.PrimaryPackagePurpose = pkgPurpose
 
-			pkgMap[rPkgId] = pkg
+			pkgs[rPkgId] = pkg
 			pkgIds = append(pkgIds, rPkgId)
 
 			if r.Package.Source != nil && r.Package.Source.Name != "" {
@@ -166,12 +167,12 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 					return nil, err
 				}
 
-				srcPkg, ok := pkgMap[rSrcPkgId]
+				srcPkg, ok := pkgs[rSrcPkgId]
 				// Record the source package if we haven't seen it yet.
 				if !ok {
 					srcPkg = newSpdxPackageFromPackage(r.Package.Source)
 					srcPkg.PrimaryPackagePurpose = "SOURCE"
-					pkgMap[rSrcPkgId] = srcPkg
+					pkgs[rSrcPkgId] = srcPkg
 					pkgIds = append(pkgIds, rSrcPkgId)
 				}
 
@@ -205,11 +206,11 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 				return nil, err
 			}
 
-			dist, ok := distMap[rDistId]
+			dist, ok := dists[rDistId]
 			// Record the Distribution if we haven't seen it yet.
 			if !ok {
 				dist = newSpdxPackageFromDistribution(r.Distribution)
-				distMap[rDistId] = dist
+				dists[rDistId] = dist
 				distIds = append(distIds, rDistId)
 			}
 
@@ -228,12 +229,12 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 				return nil, err
 			}
 
-			repo, ok := repoMap[rRepoId]
+			repo, ok := repos[rRepoId]
 			// Record the Repository if we haven't seen it yet.
 			if !ok {
 				repo = newSpdxPackageFromRepository(r.Repository)
 
-				repoMap[rRepoId] = repo
+				repos[rRepoId] = repo
 				repoIds = append(repoIds, rRepoId)
 			}
 
@@ -256,7 +257,7 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 			return nil, ctx.Err()
 		}
 
-		pkg := pkgMap[id]
+		pkg := pkgs[id]
 		out.Packages = append(out.Packages, pkg)
 
 		rels := pkgRels[id]
@@ -270,7 +271,7 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 			return nil, ctx.Err()
 		}
 
-		dist := distMap[id]
+		dist := dists[id]
 		out.Packages = append(out.Packages, dist)
 	}
 
@@ -280,7 +281,7 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 			return nil, ctx.Err()
 		}
 
-		repo := repoMap[id]
+		repo := repos[id]
 		out.Packages = append(out.Packages, repo)
 	}
 
@@ -348,6 +349,7 @@ func newSpdxPackageFromDistribution(d *claircore.Distribution) *v2_3.Package {
 
 func newSpdxPackageFromRepository(r *claircore.Repository) *v2_3.Package {
 	var extRefs []*v2_3.PackageExternalReference
+
 	if r.CPE.String() != "" {
 		extRefs = append(extRefs, &v2_3.PackageExternalReference{
 			Category: "SECURITY",
@@ -397,8 +399,8 @@ func cmpRelationship(a, b *v2_3.Relationship) int {
 // getVersion will attempt to read out the current binary's debug info, find the
 // claircore version (this was copied from Clair).
 func getVersion() string {
-	info, infoOK := debug.ReadBuildInfo()
 	var core string
+	info, infoOK := debug.ReadBuildInfo()
 	if infoOK {
 		for _, m := range info.Deps {
 			if m.Path != "github.com/quay/claircore" {
@@ -410,8 +412,10 @@ func getVersion() string {
 			}
 		}
 	}
+
 	if core == "" {
 		core = "unknown revision"
 	}
+
 	return core
 }

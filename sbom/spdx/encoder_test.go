@@ -5,13 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"io/fs"
 	"os"
 	"path"
 	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/quay/claircore"
 )
@@ -19,7 +20,7 @@ import (
 func TestEncoder(t *testing.T) {
 	e := &Encoder{
 		Version: V2_3,
-		Format:  JSON,
+		Format:  JSONFormat,
 		Creators: []Creator{
 			{
 				Creator:     "Claircore",
