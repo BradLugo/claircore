@@ -2,8 +2,9 @@ package sbom
 
 import (
 	"context"
-	"github.com/quay/claircore"
 	"io"
+
+	"github.com/quay/claircore"
 )
 
 // Encoder is an interface to convert a claircore.IndexReport into an io.Reader
