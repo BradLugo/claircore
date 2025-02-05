@@ -11,13 +11,12 @@ import (
 	"time"
 
 	spdxjson "github.com/spdx/tools-golang/json"
-
-	"github.com/quay/claircore"
-	"github.com/quay/claircore/sbom"
-
 	"github.com/spdx/tools-golang/spdx/common"
 	v2common "github.com/spdx/tools-golang/spdx/v2/common"
 	"github.com/spdx/tools-golang/spdx/v2/v2_3"
+
+	"github.com/quay/claircore"
+	"github.com/quay/claircore/sbom"
 )
 
 type Version string
@@ -144,23 +143,23 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 	}
 
 	pkgs := make(map[int]*v2_3.Package)
-	var pkgIds []int
+	var pkgIDs []int
 	dists := make(map[int]*v2_3.Package)
-	var distIds []int
+	var distIDs []int
 	repos := make(map[int]*v2_3.Package)
-	var repoIds []int
+	var repoIDs []int
 	pkgRels := map[int][]*v2_3.Relationship{}
 	for _, r := range ir.IndexRecords() {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
 
-		rPkgId, err := strconv.Atoi(r.Package.ID)
+		pkgID, err := strconv.Atoi(r.Package.ID)
 		if err != nil {
 			return nil, err
 		}
 
-		pkg, ok := pkgs[rPkgId]
+		pkg, ok := pkgs[pkgID]
 		// Record the package if we haven't seen it yet.
 		if !ok {
 			pkgDB := ""
@@ -181,22 +180,22 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 			pkg.FilesAnalyzed = true
 			pkg.PrimaryPackagePurpose = pkgPurpose
 
-			pkgs[rPkgId] = pkg
-			pkgIds = append(pkgIds, rPkgId)
+			pkgs[pkgID] = pkg
+			pkgIDs = append(pkgIDs, pkgID)
 
 			if r.Package.Source != nil && r.Package.Source.Name != "" {
-				rSrcPkgId, err := strconv.Atoi(r.Package.Source.ID)
+				srcPkgID, err := strconv.Atoi(r.Package.Source.ID)
 				if err != nil {
 					return nil, err
 				}
 
-				srcPkg, ok := pkgs[rSrcPkgId]
+				srcPkg, ok := pkgs[srcPkgID]
 				// Record the source package if we haven't seen it yet.
 				if !ok {
 					srcPkg = newSpdxPackageFromPackage(r.Package.Source)
 					srcPkg.PrimaryPackagePurpose = "SOURCE"
-					pkgs[rSrcPkgId] = srcPkg
-					pkgIds = append(pkgIds, rSrcPkgId)
+					pkgs[srcPkgID] = srcPkg
+					pkgIDs = append(pkgIDs, srcPkgID)
 				}
 
 				rel := &v2_3.Relationship{
@@ -204,7 +203,7 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 					RefB:         v2common.MakeDocElementID("", string(srcPkg.PackageSPDXIdentifier)),
 					Relationship: "GENERATED_FROM",
 				}
-				pkgRels[rPkgId] = append(pkgRels[rPkgId], rel)
+				pkgRels[pkgID] = append(pkgRels[pkgID], rel)
 			}
 		} else if pkg.PrimaryPackagePurpose == "SOURCE" {
 			// If we recorded a source package when we found it as an r.Package.Source,
@@ -224,17 +223,17 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 
 		// Record Distributions for this package.
 		if r.Distribution != nil {
-			rDistId, err := strconv.Atoi(r.Distribution.ID)
+			distID, err := strconv.Atoi(r.Distribution.ID)
 			if err != nil {
 				return nil, err
 			}
 
-			dist, ok := dists[rDistId]
+			dist, ok := dists[distID]
 			// Record the Distribution if we haven't seen it yet.
 			if !ok {
 				dist = newSpdxPackageFromDistribution(r.Distribution)
-				dists[rDistId] = dist
-				distIds = append(distIds, rDistId)
+				dists[distID] = dist
+				distIDs = append(distIDs, distID)
 			}
 
 			rel := &v2_3.Relationship{
@@ -242,23 +241,23 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 				RefB:         v2common.MakeDocElementID("", string(dist.PackageSPDXIdentifier)),
 				Relationship: "CONTAINED_BY",
 			}
-			pkgRels[rPkgId] = append(pkgRels[rPkgId], rel)
+			pkgRels[pkgID] = append(pkgRels[pkgID], rel)
 		}
 
 		// Record Repositories for this package.
 		if r.Repository != nil {
-			rRepoId, err := strconv.Atoi(r.Repository.ID)
+			repoID, err := strconv.Atoi(r.Repository.ID)
 			if err != nil {
 				return nil, err
 			}
 
-			repo, ok := repos[rRepoId]
+			repo, ok := repos[repoID]
 			// Record the Repository if we haven't seen it yet.
 			if !ok {
 				repo = newSpdxPackageFromRepository(r.Repository)
 
-				repos[rRepoId] = repo
-				repoIds = append(repoIds, rRepoId)
+				repos[repoID] = repo
+				repoIDs = append(repoIDs, repoID)
 			}
 
 			rel := &v2_3.Relationship{
@@ -266,7 +265,7 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 				RefB:         v2common.MakeDocElementID("", string(repo.PackageSPDXIdentifier)),
 				Relationship: "CONTAINED_BY",
 			}
-			pkgRels[rPkgId] = append(pkgRels[rPkgId], rel)
+			pkgRels[pkgID] = append(pkgRels[pkgID], rel)
 		}
 	}
 
@@ -274,8 +273,8 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 	// we need to order it since the IndexRecords aren't in a deterministic order.
 	// This is particular helpful for testing, but it wouldn't be unreasonable
 	// for a user to want to diff different versions of an SPDX of the same IndexReport.
-	slices.Sort(pkgIds)
-	for _, id := range pkgIds {
+	slices.Sort(pkgIDs)
+	for _, id := range pkgIDs {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
@@ -288,8 +287,8 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 		out.Relationships = append(out.Relationships, rels...)
 	}
 
-	slices.Sort(distIds)
-	for _, id := range distIds {
+	slices.Sort(distIDs)
+	for _, id := range distIDs {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
@@ -298,8 +297,8 @@ func (e *Encoder) parseIndexReport(ctx context.Context, ir *claircore.IndexRepor
 		out.Packages = append(out.Packages, dist)
 	}
 
-	slices.Sort(repoIds)
-	for _, id := range repoIds {
+	slices.Sort(repoIDs)
+	for _, id := range repoIDs {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
@@ -433,12 +432,9 @@ func getVersion() string {
 			if m.Replace != nil && m.Replace.Version != m.Version {
 				core = m.Replace.Version
 			}
+			return core
 		}
 	}
 
-	if core == "" {
-		core = "unknown revision"
-	}
-
-	return core
+	return "unknown revision"
 }
