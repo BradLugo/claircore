@@ -19,16 +19,19 @@ import (
 	"github.com/quay/claircore/sbom"
 )
 
+// Version describes the SPDX version to target.
 type Version string
 
 const (
 	V2_3 Version = "v2.3"
 )
 
+// Format describes the data format for the SPDX document.
 type Format string
 
 const JSONFormat Format = "json"
 
+// Option is a type for setting optional fields for the Encoder.
 type Option func(*Encoder)
 
 // Creator describes the creator of the SPDX document that will be produced from the encoding.
@@ -42,15 +45,25 @@ type Creator struct {
 
 var _ sbom.Encoder = (*Encoder)(nil)
 
+// Encoder defines an SPDX encoder and accepts certain values from the caller
+// to use in the SPDX document.
 type Encoder struct {
-	Version           Version
-	Format            Format
-	Creators          []Creator
-	DocumentName      string
+	// The target SPDX version in which to encode.
+	Version Version
+	// The data format in which to encode.
+	Format Format
+	// The SPDX document creator information.
+	Creators []Creator
+	// The SPDX document name field.
+	DocumentName string
+	// The SPDX document namespace field.
 	DocumentNamespace string
-	DocumentComment   string
+	// The SPDX document comment field.
+	DocumentComment string
 }
 
+// NewDefaultEncoder creates an Encoder with default values and sets optional
+// fields based on the provided options.
 func NewDefaultEncoder(options ...Option) *Encoder {
 	e := &Encoder{
 		Version: V2_3,
@@ -70,18 +83,21 @@ func NewDefaultEncoder(options ...Option) *Encoder {
 	return e
 }
 
+// WithDocumentName is used to set the SPDX document name field.
 func WithDocumentName(name string) Option {
 	return func(e *Encoder) {
 		e.DocumentName = name
 	}
 }
 
+// WithDocumentNamespace is used to set the SPDX document namespace field.
 func WithDocumentNamespace(namespace string) Option {
 	return func(e *Encoder) {
 		e.DocumentNamespace = namespace
 	}
 }
 
+// WithDocumentComment is used to set the SPDX document comment field.
 func WithDocumentComment(comment string) Option {
 	return func(e *Encoder) {
 		e.DocumentComment = comment
